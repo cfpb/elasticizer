@@ -4,7 +4,6 @@
 
 **Description**: A tool that pulls data from an arbitrary source and indexes that data in Elasticsearch. Data that is indexed in Elasticsearch is able to be efficiently and flexiblly searched.
 
-  - **Technology stack**: Indicate the technological nature of the software, including primary programming language(s) and whether the software is intended as standalone or as a module in a framework or other ecosystem.
   - **Status**:  Pre-Alpha. Just gettting started. [CHANGELOG](CHANGELOG.md).
 
 ## Dependencies
