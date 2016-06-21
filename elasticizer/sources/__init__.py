@@ -1,1 +1,1 @@
-from med_search import *
+from elasticizer.sources.med_search import *

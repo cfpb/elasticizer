@@ -1,7 +1,8 @@
 import os
+import csv
 import luigi
 from luigi.postgres import PostgresQuery
-import csv
+import elasticizer
 
 fields = [
   'name',
@@ -50,3 +51,14 @@ class FormattedMedSearch(luigi.Task):
                 writer.writeheader()
                 for row in cur:
                     writer.writerow(self._projection(row))
+
+
+class ValidMedSearchMapping(luigi.Task):
+    def requires(self):
+        return [FormattedMedSearch(), elasticizer.ValidSettings()]
+
+    def output(self):
+        return luigi.LocalTarget("med-search-mapping.json")
+
+    def run(self):
+        raise RuntimeError('Mapping file must be externally provided')
