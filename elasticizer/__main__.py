@@ -1,23 +1,22 @@
-import sys
 import argparse
+import luigi
+from elasticizer.sources import FormattedMedSearch
 
-if __name__ == '__main__':
+def buildArgParser():
     parser = argparse.ArgumentParser(prog='elasticizer',
                                      description='from DB to Elasticsearch')
-    subs = parser.add_subparsers(help='available commands')
-    
-    commands = {
-#                'worker': elasticizer.Worker,
-                }
 
-    # for name in sorted(commands):
-    #     cls = commands[name]
-    #     sub1 = subs.add_parser(name, help=cls.description)
-    #     cls.addParserArguments(sub1)
-    
+    parser.add_argument('--settings', metavar='file', dest='settings', 
+                        default=None,
+                        help='the file used to set up Elasticsearch analyzers')
+    parser.add_argument('--workers', metavar='n', type=int, dest='workers', 
+                        default=1,
+                        help='number of worker threads')
+
+    return parser
+
+if __name__ == '__main__':
+    parser = buildArgParser()
     args = parser.parse_args()
-    if len(sys.argv) < 2:
-        parser.print_help()
-    elif len(sys.argv) >= 2 and sys.argv[1].lower() in commands:
-        cls = commands[sys.argv[1].lower()]
-        cls.run(**vars(args))
+
+    luigi.run(['FormattedMedSearch', '--workers', '1', '--local-scheduler'])
