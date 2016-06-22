@@ -1,2 +1,3 @@
 from elasticizer.elastic import *
-from elasticizer.sources import *
+
+from elasticizer.pipelines import *

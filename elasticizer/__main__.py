@@ -1,7 +1,8 @@
 import argparse
 import luigi
 import os
-from elasticizer import LoadMed
+import random
+from elasticizer import LoadMedSearch
 
 def buildArgParser():
     parser = argparse.ArgumentParser(prog='elasticizer',
@@ -12,10 +13,13 @@ def buildArgParser():
     parser.add_argument('--restart', action='store_true', dest='restart', 
                         default=False,
                         help='clear all targets before running')
+    parser.add_argument('--clear', action='store_true', dest='clear', 
+                        default=False,
+                        help='clear all targets')
 
     return parser
 
-def restart(last):
+def clear(last):
     visited, queue = set(), [last]
     while queue:
         task = queue.pop(0)
@@ -35,14 +39,13 @@ if __name__ == '__main__':
     cmdline_args = parser.parse_args()
 
     # get the end class
-    last = LoadMed()
+    task = LoadMedSearch()
 
-    if cmdline_args.restart:
-        restart(last)
+    if cmdline_args.clear:
+        clear(task)
 
-    args = [
-        type(last).__name__, 
-        '--workers', '1', '--local-scheduler'
-    ]
+    else:
+        if cmdline_args.restart:
+            clear(task)
 
-    luigi.run(args)
+        luigi.build([task], local_scheduler=True)     

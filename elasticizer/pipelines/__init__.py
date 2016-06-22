@@ -1,0 +1,1 @@
+from elasticizer.pipelines.med_search import LoadMedSearch
