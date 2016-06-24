@@ -2,7 +2,7 @@ import argparse
 import luigi
 import os
 import random
-from elasticizer import LoadMedSearch
+from elasticizer import Load
 
 def buildArgParser():
     parser = argparse.ArgumentParser(prog='elasticizer',
@@ -27,11 +27,14 @@ def clear(last):
             visited.add(task)
             queue.extend(luigi.task.flatten(task.requires()))
 
-            if task.output().exists():
-                try :
-                  task.output().remove()
-                except:
-                    pass    
+            if isinstance(task.output(), list):
+                pass
+            else:
+                if task.output().exists():
+                    try :
+                      task.output().remove()
+                    except:
+                        pass    
 
 if __name__ == '__main__':
     # get the arguments from the command line
@@ -39,7 +42,7 @@ if __name__ == '__main__':
     cmdline_args = parser.parse_args()
 
     # get the end class
-    task = LoadMedSearch()
+    task = Load()
 
     if cmdline_args.clear:
         clear(task)

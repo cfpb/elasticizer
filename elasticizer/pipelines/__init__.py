@@ -1,1 +1,1 @@
-from elasticizer.pipelines.med_search import LoadMedSearch
+from elasticizer.pipelines.extract_postgres import Load

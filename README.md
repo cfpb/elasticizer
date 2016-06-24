@@ -13,16 +13,18 @@
 
 ```shell
 git clone https://github.com/cfpb/elasticizer.git
-cd elasticizer
 virtualenv .virtualenvs/elasticizer/bin/activate
+sudo chown -R vagrant .virtualenvs/
+
 source .virtualenvs/elasticizer/bin/activate
+cd elasticizer
 pip install -r requirements.txt
 python setup.py develop
 ```
 
 ## Configuration
 
-`touch luigi.cfg` + some more later
+_TBD_
 
 ## Usage
 
