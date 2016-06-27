@@ -6,22 +6,45 @@
 
 ## Dependencies
 
- - Elasticsearch
+ - [Elasticsearch](https://www.elastic.co/)
+ - [Luigi](http://luigi.readthedocs.io/en/stable/index.html)
 
 ## Installation
 
+```shell
+git clone https://github.com/cfpb/elasticizer.git
+virtualenv .virtualenvs/elasticizer/bin/activate
+sudo chown -R vagrant .virtualenvs/
+
+source .virtualenvs/elasticizer/bin/activate
+cd elasticizer
+pip install -r requirements.txt
+python setup.py develop
+```
+
 ## Configuration
 
+_TBD_
 
 ## Usage
+
+###### Run in resumable mode
+`python -m elasticizer`
+
+###### Run entire chain of tasks
+`python -m elasticizer --restart`
+
+###### Clear the side-effects
+`python -m elasticizer --clear`
 
 
 ## How to test the software
 
+`python setup.py test`
 
 ## Known issues
 
-None
+[Use the git issues log](https://github.com/cfpb/elasticizer/issues)
 
 ## Getting help
 

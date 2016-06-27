@@ -1,0 +1,1 @@
+from elasticizer.pipelines.extract_postgres import Load

@@ -1,23 +1,54 @@
-import sys
 import argparse
+import luigi
+import os
+import random
+from elasticizer import Load
 
-if __name__ == '__main__':
+def buildArgParser():
     parser = argparse.ArgumentParser(prog='elasticizer',
                                      description='from DB to Elasticsearch')
-    subs = parser.add_subparsers(help='available commands')
-    
-    commands = {
-#                'worker': elasticizer.Worker,
-                }
 
-    # for name in sorted(commands):
-    #     cls = commands[name]
-    #     sub1 = subs.add_parser(name, help=cls.description)
-    #     cls.addParserArguments(sub1)
-    
-    args = parser.parse_args()
-    if len(sys.argv) < 2:
-        parser.print_help()
-    elif len(sys.argv) >= 2 and sys.argv[1].lower() in commands:
-        cls = commands[sys.argv[1].lower()]
-        cls.run(**vars(args))
+    # parser.add_argument('--settings', nargs=1, metavar='file', dest='settings'
+    #                     help='the file used to set up Elasticsearch analyzers')
+    parser.add_argument('--restart', action='store_true', dest='restart', 
+                        default=False,
+                        help='clear all targets before running')
+    parser.add_argument('--clear', action='store_true', dest='clear', 
+                        default=False,
+                        help='clear all targets')
+
+    return parser
+
+def clear(last):
+    visited, queue = set(), [last]
+    while queue:
+        task = queue.pop(0)
+        if task not in visited:
+            visited.add(task)
+            queue.extend(luigi.task.flatten(task.requires()))
+
+            if isinstance(task.output(), list):
+                pass
+            else:
+                if task.output().exists():
+                    try :
+                      task.output().remove()
+                    except:
+                        pass    
+
+if __name__ == '__main__':
+    # get the arguments from the command line
+    parser = buildArgParser()
+    cmdline_args = parser.parse_args()
+
+    # get the end class
+    task = Load()
+
+    if cmdline_args.clear:
+        clear(task)
+
+    else:
+        if cmdline_args.restart:
+            clear(task)
+
+        luigi.build([task], local_scheduler=True)     
