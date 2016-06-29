@@ -26,7 +26,8 @@ class ExternalLocalTarget(luigi.LocalTarget):
 # -----------------------------------------------------------------------------
 
 class Extract(PostgresQuery):
-    table = luigi.Parameter()
+    table = 'institution'
+    # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())    
 
     host = os.getenv('DB_HOST', '127.0.0.1')
@@ -52,7 +53,7 @@ class Format(luigi.Task):
         return results
 
     def requires(self):
-        return [Extract(table='institution'),
+        return [Extract(),
                 ValidMapping(index=self.index)
                 ]
  
@@ -63,21 +64,21 @@ class Format(luigi.Task):
         # TODO: the fields are extracted from the mapping file
         fields = [
           'id_cfpb',
-          'source_inst_id',
-          'source_inst_type',
-          'start_date',
-          'end_date',
-          'name',
-          'name_short',
-          'active_date',
-          'inactive_date',
-          'inst_type_code',
-          'inst_status_code',
-          'fax_number',
-          'phone_number',
-          'prudential_regulator_code',
           'source_id'
           ]
+        #   'source_inst_id',
+        #   'source_inst_type',
+        #   'start_date',
+        #   'end_date',
+        #   'name',
+        #   'name_short',
+        #   'active_date',
+        #   'inactive_date',
+        #   'inst_type_code',
+        #   'inst_status_code',
+        #   'fax_number',
+        #   'phone_number',
+        #   'prudential_regulator_code',
         # end TODO
 
         # Build the SQL
@@ -120,6 +121,7 @@ class ValidSettings(luigi.ExternalTask):
 
 class ElasticIndex(CopyToIndex):
     index = luigi.Parameter()
+    # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())    
 
     host = os.getenv('ES_HOST', 'localhost')
