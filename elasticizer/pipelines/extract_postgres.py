@@ -6,6 +6,8 @@ from datetime import datetime
 from luigi.postgres import PostgresQuery
 from luigi.contrib.esindex import ElasticsearchTarget, CopyToIndex
 import elasticizer
+import json
+import collections
 
 # -----------------------------------------------------------------------------
 # Targets
@@ -43,6 +45,11 @@ class Extract(PostgresQuery):
 class Format(luigi.Task):
     index = luigi.Parameter()
 
+    def _fields_from_mapping(self):
+        with open(self.index + "-mapping.json",'r') as fp:
+            mapping_json= json.load(fp,object_pairs_hook=collections.OrderedDict)
+        return mapping_json['properties'].keys()
+
     def _projection(self, row, fields):
         results = {}
         for field, value in zip(fields, row):
@@ -61,26 +68,7 @@ class Format(luigi.Task):
         return luigi.LocalTarget(self.index + "-formatted.json")
  
     def run(self):
-        # TODO: the fields are extracted from the mapping file
-        fields = [
-          'id_cfpb',
-          'source_id'
-          ]
-        #   'source_inst_id',
-        #   'source_inst_type',
-        #   'start_date',
-        #   'end_date',
-        #   'name',
-        #   'name_short',
-        #   'active_date',
-        #   'inactive_date',
-        #   'inst_type_code',
-        #   'inst_status_code',
-        #   'fax_number',
-        #   'phone_number',
-        #   'prudential_regulator_code',
-        # end TODO
-
+        fields = self._fields_from_mapping() 
         # Build the SQL
         extractor = self.input()[0]
         template = "SELECT {0} FROM {1};"
@@ -155,4 +143,3 @@ class ElasticIndex(CopyToIndex):
 class Load(luigi.WrapperTask):
     def requires(self):
         return [ElasticIndex(index='med-search')]
-
