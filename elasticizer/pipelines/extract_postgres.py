@@ -43,10 +43,11 @@ class Extract(PostgresQuery):
 
 
 class Format(luigi.Task):
-    index = luigi.Parameter()
+    mapping_file = luigi.Parameter()
+    docs_file = luigi.Parameter()
 
     def _fields_from_mapping(self):
-        with open(self.index + "-mapping.json",'r') as fp:
+        with open(self.mapping_file,'r') as fp:
             mapping_json= json.load(fp,object_pairs_hook=collections.OrderedDict)
         return mapping_json['properties'].keys()
 
@@ -61,11 +62,11 @@ class Format(luigi.Task):
 
     def requires(self):
         return [Extract(),
-                ValidMapping(index=self.index)
+                ValidMapping(mapping_file=self.mapping_file)
                 ]
  
     def output(self):
-        return luigi.LocalTarget(self.index + "-formatted.json")
+        return luigi.LocalTarget(self.docs_file)
  
     def run(self):
         fields = self._fields_from_mapping() 
@@ -85,30 +86,33 @@ class ValidMapping(luigi.ExternalTask):
     """
     This class expects the mapping file to be present before running.
     """
-    index = luigi.Parameter()
+    mapping_file = luigi.Parameter()
 
     def requires(self):
         return []
 
     def output(self):
-        return ExternalLocalTarget(self.index + "-mapping.json")
+        return ExternalLocalTarget(self.mapping_file)
 
 
 class ValidSettings(luigi.ExternalTask):
     """
     This class expects the settings file to be present before running.
     """
-    index = luigi.Parameter()
+    settings_file = luigi.Parameter()
 
     def requires(self):
         return []
 
     def output(self):
-        return ExternalLocalTarget(self.index + "-settings.json")
+        return ExternalLocalTarget(self.settings_file)
 
 
 class ElasticIndex(CopyToIndex):
     index = luigi.Parameter()
+    mapping_file = luigi.Parameter()
+    settings_file = luigi.Parameter()
+    docs_file = luigi.Parameter()
     # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())    
 
@@ -121,9 +125,9 @@ class ElasticIndex(CopyToIndex):
     purge_existing_index = True
 
     def requires(self):
-        return [ValidSettings(index=self.index), 
-                ValidMapping(index=self.index), 
-                Format(index=self.index)]
+        return [ValidSettings(settings_file=self.settings_file), 
+                ValidMapping(mapping_file=self.mapping_file), 
+                Format(mapping_file=self.mapping_file, docs_file=self.docs_file)]
 
     @property
     def settings(self):
@@ -141,5 +145,10 @@ class ElasticIndex(CopyToIndex):
 
 
 class Load(luigi.WrapperTask):
+    index = luigi.Parameter()
+    mapping_file = luigi.Parameter()
+    settings_file = luigi.Parameter()
+    docs_file = luigi.Parameter()
+
     def requires(self):
-        return [ElasticIndex(index='med-search')]
+        return [ElasticIndex(index=self.index, mapping_file=self.mapping_file, settings_file=self.settings_file, docs_file=self.docs_file)]
