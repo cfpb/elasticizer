@@ -11,6 +11,9 @@ def buildArgParser():
     parser.add_argument('--index', '-i',  
                          default=False, required=True, dest='index',
                          help='the Elasticsearch index name that Luigi updates')
+    parser.add_argument('--table', '-t',
+                         default=False, required=True, dest='table',
+                         help='the Elasticsearch table name that Luigi reads from')
     parser.add_argument('--mapping_file', '-m',  metavar='mapping file',
                          default='mappings.json', dest='mapping_file',
                          help='the mapping filename used to set up Elasticsearch mappings')
@@ -55,7 +58,8 @@ if __name__ == '__main__':
     task = Load(index=cmdline_args.index, 
                 mapping_file=cmdline_args.mapping_file,
                 settings_file=cmdline_args.settings_file,
-                docs_file=cmdline_args.docs_file)
+                docs_file=cmdline_args.docs_file,
+                table=cmdline_args.table)
 
     if cmdline_args.clear:
         clear(task)
