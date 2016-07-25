@@ -28,7 +28,7 @@ class ExternalLocalTarget(luigi.LocalTarget):
 # -----------------------------------------------------------------------------
 
 class Extract(PostgresQuery):
-    table = 'institution'
+    table = luigi.Parameter()
     # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())    
 
@@ -37,6 +37,7 @@ class Extract(PostgresQuery):
     user = os.getenv('PGUSER', 'vagrant')
     password = os.getenv('PGPASSWORD', 'vagrant')
     
+
     @property
     def query(self):
         return 'SELECT * FROM {0}'.format(self.table)
@@ -45,6 +46,7 @@ class Extract(PostgresQuery):
 class Format(luigi.Task):
     mapping_file = luigi.Parameter()
     docs_file = luigi.Parameter()
+    table = luigi.Parameter()
 
     def _fields_from_mapping(self):
         with open(self.mapping_file,'r') as fp:
@@ -61,7 +63,7 @@ class Format(luigi.Task):
         return results
 
     def requires(self):
-        return [Extract(),
+        return [Extract(table=self.table),
                 ValidMapping(mapping_file=self.mapping_file)
                 ]
  
@@ -113,6 +115,7 @@ class ElasticIndex(CopyToIndex):
     mapping_file = luigi.Parameter()
     settings_file = luigi.Parameter()
     docs_file = luigi.Parameter()
+    table = luigi.Parameter()
     # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())    
 
@@ -127,7 +130,8 @@ class ElasticIndex(CopyToIndex):
     def requires(self):
         return [ValidSettings(settings_file=self.settings_file), 
                 ValidMapping(mapping_file=self.mapping_file), 
-                Format(mapping_file=self.mapping_file, docs_file=self.docs_file)]
+                Format(mapping_file=self.mapping_file, docs_file=self.docs_file, 
+                       table=self.table)]
 
     @property
     def settings(self):
@@ -149,6 +153,6 @@ class Load(luigi.WrapperTask):
     mapping_file = luigi.Parameter()
     settings_file = luigi.Parameter()
     docs_file = luigi.Parameter()
-
+    table = luigi.Parameter()
     def requires(self):
-        return [ElasticIndex(index=self.index, mapping_file=self.mapping_file, settings_file=self.settings_file, docs_file=self.docs_file)]
+        return [ElasticIndex(index=self.index, mapping_file=self.mapping_file, settings_file=self.settings_file, docs_file=self.docs_file, table=self.table)]
