@@ -50,8 +50,14 @@ class Format(luigi.Task):
 
     def _fields_from_mapping(self):
         with open(self.mapping_file,'r') as fp:
-            mapping_json= json.load(fp,object_pairs_hook=collections.OrderedDict)
-        return mapping_json['properties'].keys()
+            mapping_json = json.load(fp, object_pairs_hook=collections.OrderedDict)
+            fields = mapping_json['properties'].keys()
+            # Automatically remove copy_to fields because they aren't expected from the input
+            copy_targets = set([i.get('copy_to','') for i in mapping_json['properties'].values()])
+            for ct in copy_targets:
+                if ct:
+                    fields.remove(ct)
+        return fields
 
     def _projection(self, row, fields):
         results = {}
