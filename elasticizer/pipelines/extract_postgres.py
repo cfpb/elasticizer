@@ -144,7 +144,8 @@ class ElasticIndex(CopyToIndex):
         es = self._init_connection()
         if not es.indices.exists(index=self.index):
             es.indices.create(index=self.index, body=self.settings)
-            self._redirect_alias(es, old_index=self._backup_index, new_index=self.index, alias=self.indexes.alias)
+            if self.indexes.alias:
+                self._redirect_alias(es, old_index=self._backup_index, new_index=self.index, alias=self.indexes.alias)
 
     @staticmethod
     def _redirect_alias(es, old_index, new_index, alias):
@@ -157,13 +158,18 @@ class ElasticIndex(CopyToIndex):
     _new_index = None
     @property
     def index(self):
-        ''' run once: if the alias points to index-v1 create index-v2 else create index-v1 '''
+        ''' 
+        Run once: if alias points to index-v1 create index-v2 else create index-v1.
+        If alias already exists error. 
+        '''
         if not self._new_index:
             es = self._init_connection()
-            if es.indices.exists_alias(name=self.indexes.alias, index=self.indexes.v1):
+            if self.indexes.alias and es.indices.exists_alias(name=self.indexes.alias, index=self.indexes.v1):
                 self._new_index = self.indexes.v2
             else: 
                 self._new_index = self.indexes.v1
+            if es.indices.exists_alias(name=self._new_index):
+                raise ValueError('index already exists with the same name as the alias:', self.index)
         return self._new_index
 
     @property

@@ -9,15 +9,12 @@ def buildArgParser():
     parser = argparse.ArgumentParser(prog='elasticizer',
                                      description='from DB to Elasticsearch')
 
-    parser.add_argument('--index1', '-i1',  
-                         default=False, required=True, dest='index1',
-                         help='the first Elasticsearch index name that Luigi updates')
-    parser.add_argument('--index2', '-i2',  
-                         default=False, required=True, dest='index2',
-                         help='the second Elasticsearch index name that Luigi updates')
-    parser.add_argument('--alias', '-a',  
-                         default=False, required=True, dest='alias',
-                         help='the Elasticsearch alias name that points to index1 or index2')
+    parser.add_argument('--index', '-i',
+                         default=False, required=True, dest='index',
+                         help='the Elasticsearch index name that Luigi updates')
+    parser.add_argument('--backup', '-b', action='store_true',
+                         default=False, required=False, dest='backup',
+                         help='create new cycling backup indices with -v1 and -v2 appended and aliased with the index arg')
     parser.add_argument('--table', '-t',
                          default=False, required=True, dest='table',
                          help='the Elasticsearch table name that Luigi reads from')
@@ -61,8 +58,16 @@ if __name__ == '__main__':
     parser = buildArgParser()
     cmdline_args = parser.parse_args()
 
+    #decide on indexing
     Indexes = collections.namedtuple('Indexes', ['v1', 'v2', 'alias'])
-    indexes = Indexes(v1=cmdline_args.index1, v2=cmdline_args.index2, alias=cmdline_args.alias)
+    if cmdline_args.backup:
+        indexes = Indexes(v1=cmdline_args.index+'-v1',
+                          v2=cmdline_args.index+'-v2',
+                          alias=cmdline_args.index)
+    else:
+        indexes = Indexes(v1=cmdline_args.index,
+                          v2=None,
+                          alias=None)
     # get the end class
     task = Load(indexes=indexes, 
                 mapping_file=cmdline_args.mapping_file,
