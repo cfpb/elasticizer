@@ -8,6 +8,7 @@ from luigi.contrib.esindex import ElasticsearchTarget, CopyToIndex
 import elasticizer
 import json
 import collections
+#import logging
 
 # -----------------------------------------------------------------------------
 # Targets
@@ -117,7 +118,7 @@ class ValidSettings(luigi.ExternalTask):
 
 
 class ElasticIndex(CopyToIndex):
-    index = luigi.Parameter()
+    indexes = luigi.Parameter()
     mapping_file = luigi.Parameter()
     settings_file = luigi.Parameter()
     docs_file = luigi.Parameter()
@@ -139,6 +140,39 @@ class ElasticIndex(CopyToIndex):
                 Format(mapping_file=self.mapping_file, docs_file=self.docs_file, 
                        table=self.table)]
 
+    def create_index(self):
+        es = self._init_connection()
+        if not es.indices.exists(index=self.index):
+            es.indices.create(index=self.index, body=self.settings)
+            self._redirect_alias(es, old_index=self._backup_index, new_index=self.index, alias=self.indexes.alias)
+
+    @staticmethod
+    def _redirect_alias(es, old_index, new_index, alias):
+        if es.indices.exists_alias(name=alias, index=old_index):
+            # logger.info("Remove alias %s for index %s" % (alias, old_index))
+            es.indices.delete_alias(name=alias, index=old_index)
+        # logger.info("Adding alias %s for index %s" % (alias, new_index))
+        es.indices.put_alias(name=alias, index=new_index)
+
+    _new_index = None
+    @property
+    def index(self):
+        ''' run once: if the alias points to index-v1 create index-v2 else create index-v1 '''
+        if not self._new_index:
+            es = self._init_connection()
+            if es.indices.exists_alias(name=self.indexes.alias, index=self.indexes.v1):
+                self._new_index = self.indexes.v2
+            else: 
+                self._new_index = self.indexes.v1
+        return self._new_index
+
+    @property
+    def _backup_index(self):
+        if self.indexes.v1 != self.index:
+            return self.indexes.v1
+        else:
+            return self.indexes.v2
+
     @property
     def settings(self):
         with self.input()[0].open('r') as f:
@@ -155,10 +189,10 @@ class ElasticIndex(CopyToIndex):
 
 
 class Load(luigi.WrapperTask):
-    index = luigi.Parameter()
+    indexes = luigi.Parameter()
     mapping_file = luigi.Parameter()
     settings_file = luigi.Parameter()
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
     def requires(self):
-        return [ElasticIndex(index=self.index, mapping_file=self.mapping_file, settings_file=self.settings_file, docs_file=self.docs_file, table=self.table)]
+        return [ElasticIndex(indexes=self.indexes, mapping_file=self.mapping_file, settings_file=self.settings_file, docs_file=self.docs_file, table=self.table)]

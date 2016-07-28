@@ -3,14 +3,21 @@ import luigi
 import os
 import random
 from elasticizer import Load
+import collections
 
 def buildArgParser():
     parser = argparse.ArgumentParser(prog='elasticizer',
                                      description='from DB to Elasticsearch')
 
-    parser.add_argument('--index', '-i',  
-                         default=False, required=True, dest='index',
-                         help='the Elasticsearch index name that Luigi updates')
+    parser.add_argument('--index1', '-i1',  
+                         default=False, required=True, dest='index1',
+                         help='the first Elasticsearch index name that Luigi updates')
+    parser.add_argument('--index2', '-i2',  
+                         default=False, required=True, dest='index2',
+                         help='the second Elasticsearch index name that Luigi updates')
+    parser.add_argument('--alias', '-a',  
+                         default=False, required=True, dest='alias',
+                         help='the Elasticsearch alias name that points to index1 or index2')
     parser.add_argument('--table', '-t',
                          default=False, required=True, dest='table',
                          help='the Elasticsearch table name that Luigi reads from')
@@ -45,7 +52,7 @@ def clear(last):
             else:
                 if task.output().exists():
                     try :
-                      task.output().remove()
+                        task.output().remove()
                     except:
                         pass    
 
@@ -54,8 +61,10 @@ if __name__ == '__main__':
     parser = buildArgParser()
     cmdline_args = parser.parse_args()
 
+    Indexes = collections.namedtuple('Indexes', ['v1', 'v2', 'alias'])
+    indexes = Indexes(v1=cmdline_args.index1, v2=cmdline_args.index2, alias=cmdline_args.alias)
     # get the end class
-    task = Load(index=cmdline_args.index, 
+    task = Load(indexes=indexes, 
                 mapping_file=cmdline_args.mapping_file,
                 settings_file=cmdline_args.settings_file,
                 docs_file=cmdline_args.docs_file,
