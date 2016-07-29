@@ -118,6 +118,13 @@ class ValidSettings(luigi.ExternalTask):
 
 
 class ElasticIndex(CopyToIndex):
+    '''
+    Copies data into index with backups if requested.
+
+    The NamedTuple indexes, of the form (v1,v2 .... alias), provides the list of 
+    indexes to cycle through, and an alias for the current choice.
+    '''
+
     indexes = luigi.Parameter()
     mapping_file = luigi.Parameter()
     settings_file = luigi.Parameter()
@@ -140,45 +147,6 @@ class ElasticIndex(CopyToIndex):
                 Format(mapping_file=self.mapping_file, docs_file=self.docs_file, 
                        table=self.table)]
 
-    def create_index(self):
-        es = self._init_connection()
-        if not es.indices.exists(index=self.index):
-            es.indices.create(index=self.index, body=self.settings)
-            if self.indexes.alias:
-                self._redirect_alias(es, old_index=self._backup_index, new_index=self.index, alias=self.indexes.alias)
-
-    @staticmethod
-    def _redirect_alias(es, old_index, new_index, alias):
-        if es.indices.exists_alias(name=alias, index=old_index):
-            # logger.info("Remove alias %s for index %s" % (alias, old_index))
-            es.indices.delete_alias(name=alias, index=old_index)
-        # logger.info("Adding alias %s for index %s" % (alias, new_index))
-        es.indices.put_alias(name=alias, index=new_index)
-
-    _new_index = None
-    @property
-    def index(self):
-        ''' 
-        Run once: if alias points to index-v1 create index-v2 else create index-v1.
-        If alias already exists error. 
-        '''
-        if not self._new_index:
-            es = self._init_connection()
-            if self.indexes.alias and es.indices.exists_alias(name=self.indexes.alias, index=self.indexes.v1):
-                self._new_index = self.indexes.v2
-            else: 
-                self._new_index = self.indexes.v1
-            if es.indices.exists_alias(name=self._new_index):
-                raise ValueError('index already exists with the same name as the alias:', self.index)
-        return self._new_index
-
-    @property
-    def _backup_index(self):
-        if self.indexes.v1 != self.index:
-            return self.indexes.v1
-        else:
-            return self.indexes.v2
-
     @property
     def settings(self):
         with self.input()[0].open('r') as f:
@@ -192,6 +160,62 @@ class ElasticIndex(CopyToIndex):
     def docs(self):
         with self.input()[2].open('r') as f:
             return json.load(f)
+
+    @staticmethod
+    def _redirect_alias(es, old_index, new_index, alias):
+        if es.indices.exists_alias(name=alias, index=old_index):
+            # logger.info("Remove alias %s for index %s" % (alias, old_index))
+            es.indices.delete_alias(name=alias, index=old_index)
+        # logger.info("Adding alias %s for index %s" % (alias, new_index))
+        es.indices.put_alias(name=alias, index=new_index)
+
+    def _list_index_names(self): 
+        d = self.indexes._asdict()
+        del d['alias']
+        return list(d.values())
+        
+    def _iter_padded_index_names(self):
+        ''' a padded generator of indices that returns to the first element [X,Y,Z,alias]->[X,Y,Z,A]''' 
+        names = self._list_index_names()
+        for n in names + [names[0]]:
+            yield n
+
+    def _find_old_new_index(self, alias):
+        ''' use the index after the current alias for the new index/alias '''
+        es = self._init_connection()
+        iter_indices = self._iter_padded_index_names()
+        for old_name in iter_indices:
+            if es.indices.exists_alias(name=alias, index=old_name):
+                new_name = next(iter_indices)
+                return (old_name, new_name)
+        # didn't find the alias:
+        return (None, self._list_index_names()[0])
+
+    _new_index = None
+    @property
+    def index(self):
+        ''' 
+        Set the old index and the new index to be deleted and re-created.
+
+        Run once when _new_index doesn't exist. 
+        If alias points to index-v1 create index-v2 else create index-v1.
+        If alias for the new index exists error. 
+        '''
+        if self._new_index:
+            return self._new_index
+        else:
+            self._old_index, self._new_index = self._find_old_new_index(self.indexes.alias)
+            es = self._init_connection()
+            if es.indices.exists_alias(name=self._new_index):
+                raise ValueError('index already exists with the same name as the alias:', self.index)
+            return self._new_index
+
+    def create_index(self):
+        es = self._init_connection()
+        if not es.indices.exists(index=self.index):
+            es.indices.create(index=self.index, body=self.settings)
+            if self.indexes.alias:
+                self._redirect_alias(es, old_index=self._old_index, new_index=self._new_index, alias=self.indexes.alias)
 
 
 class Load(luigi.WrapperTask):
