@@ -35,11 +35,13 @@ def buildArgParser():
                         help='clear all targets')
     return parser
 
+
 def backup_type(x):
     x = int(x)
     if x < 1:
         raise argparse.ArgumentTypeError("Minimum backup count is 0 for no backups")
     return x
+
 
 def clear(last):
     visited, queue = set(), [last]
@@ -58,40 +60,27 @@ def clear(last):
                     except:
                         pass    
 
-def label_indices(n_versions, index_name):
-    #create a version and version name for each 
-    labels = [''] * (n_versions+1)
-    index_names = [''] * (n_versions+1)
-    for i in range(n_versions):
-        labels[i] = 'v' + str(i+1)
-        index_names[i] = index_name + '-' + labels[i]
-   #if no backups, don't create an alias 
-    labels[n_versions] = 'alias'
-    if n_versions > 1:
-        index_names[n_versions] = index_name
-    #assemble into a named tuple
-    Indexes = collections.namedtuple('Indexes', labels)
-    return Indexes(*index_names)
 
-if __name__ == '__main__':
+def main():
     # get the arguments from the command line
     parser = buildArgParser()
     cmdline_args = parser.parse_args()
 
     #get a named tuple of indexes v1...vN
-    indexes = label_indices(cmdline_args.backup_count+1, cmdline_args.index)
+    indexes = Load.label_indices(cmdline_args.backup_count+1, cmdline_args.index)
     # get the end class
     task = Load(indexes=indexes, 
                 mapping_file=cmdline_args.mapping_file,
                 settings_file=cmdline_args.settings_file,
                 docs_file=cmdline_args.docs_file,
                 table=cmdline_args.table)
-
     if cmdline_args.clear:
         clear(task)
-
     else:
         if cmdline_args.restart:
             clear(task)
+        luigi.build([task], local_scheduler=True)
 
-        luigi.build([task], local_scheduler=True)     
+
+if __name__ == '__main__':
+    main()
