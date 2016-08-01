@@ -40,7 +40,7 @@ _TBD_
 
 ## How to test the software
 
-`python setup.py test`
+Run `nosetests`.
 
 ## Known issues
 
