@@ -27,7 +27,6 @@ class ExternalLocalTarget(luigi.LocalTarget):
 # -----------------------------------------------------------------------------
 # Tasks
 # -----------------------------------------------------------------------------
-
 class Extract(PostgresQuery):
     table = luigi.Parameter()
     # this is a hack to force action by Luigi through changing parameters
@@ -38,7 +37,6 @@ class Extract(PostgresQuery):
     user = os.getenv('PGUSER', 'vagrant')
     password = os.getenv('PGPASSWORD', 'vagrant')
     
-
     @property
     def query(self):
         return 'SELECT * FROM {0}'.format(self.table)
@@ -124,7 +122,6 @@ class ElasticIndex(CopyToIndex):
     The NamedTuple indexes, of the form (v1,v2 .... alias), provides the list of 
     indexes to cycle through, and an alias for the current choice.
     '''
-
     indexes = luigi.Parameter()
     mapping_file = luigi.Parameter()
     settings_file = luigi.Parameter()
@@ -224,5 +221,30 @@ class Load(luigi.WrapperTask):
     settings_file = luigi.Parameter()
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
+
     def requires(self):
         return [ElasticIndex(indexes=self.indexes, mapping_file=self.mapping_file, settings_file=self.settings_file, docs_file=self.docs_file, table=self.table)]
+
+    @staticmethod
+    def label_indices(n_versions, index_name):
+        '''
+        Given a n_versions > 1 and an index_name, create a namedtuple
+        consisting of the versions and the alias
+        (v1:index_name-v1, v2:index_name-v2, ..., vn_versions:..., alias: index_name )
+        or for n=1, return just v1:index_name with no alias.
+        '''
+        #create a version and version name for each + alias
+        labels = [''] * (n_versions + 1)
+        index_names = [''] * (n_versions + 1)
+        for i in range(n_versions):
+            labels[i] = 'v' + str(i + 1)
+            index_names[i] = index_name + '-' + labels[i]
+        labels[n_versions] = 'alias'
+        index_names[n_versions] = index_name
+        #if no backups, don't create an alias
+        if n_versions == 1:
+            index_names[0] = index_name
+            index_names[n_versions] = ''
+        #assemble into a named tuple
+        Indexes = collections.namedtuple('Indexes', labels)
+        return Indexes(*index_names)
