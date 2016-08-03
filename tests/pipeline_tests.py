@@ -1,5 +1,6 @@
 import unittest
 from nose.tools import assert_equal
+from elasticizer.pipelines.extract_postgres import Extract
 from elasticizer import Load
 from nose_parameterized import parameterized
 import collections
