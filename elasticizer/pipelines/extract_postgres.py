@@ -204,7 +204,7 @@ class ElasticIndex(CopyToIndex):
             self._old_index, self._new_index = self._find_old_new_index(self.indexes.alias)
             es = self._init_connection()
             if es.indices.exists_alias(name=self._new_index):
-                raise ValueError('index already exists with the same name as the alias:', self.index)
+                raise ValueError('index already exists with the same name as the alias:', self._new_index)
             return self._new_index
 
     def create_index(self):
