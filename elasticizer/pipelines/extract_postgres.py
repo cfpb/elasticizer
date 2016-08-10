@@ -135,6 +135,10 @@ class ElasticIndex(CopyToIndex):
     user = os.getenv('ES_USER', '')
     password = os.getenv('ES_PASSWORD', '')
     http_auth = (user, password)
+    # ssl for es isn't part of the luigi api so it must provided as an extra arg
+    use_ssl = (os.getenv('ES_USE_SSL','False')).lower() in ('true',)
+    verify_certs = False
+    extra_elasticsearch_args = {'use_ssl':use_ssl, 'verify_certs': verify_certs}
 
     purge_existing_index = True
 
@@ -204,7 +208,9 @@ class ElasticIndex(CopyToIndex):
             self._old_index, self._new_index = self._find_old_new_index(self.indexes.alias)
             es = self._init_connection()
             if es.indices.exists_alias(name=self._new_index):
-                raise ValueError('index already exists with the same name as the alias:', self._new_index)
+                raise ValueError('index already exists with the same name \
+                                  as the alias (also verify SSL settings):', 
+                                  self._new_index)
             return self._new_index
 
     def create_index(self):
