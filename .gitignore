@@ -42,3 +42,10 @@ coverage.xml
 ehthumbs.db
 Thumbs.db
 ~*
+
+# Handled in a separate Repo
+demo-data/
+es-index/
+
+# Artifacts dumped in by Ansible tasks
+med-search-*.json
