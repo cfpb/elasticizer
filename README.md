@@ -8,15 +8,18 @@
 
  - [Elasticsearch](https://www.elastic.co/)
  - [Luigi](http://luigi.readthedocs.io/en/stable/index.html)
+ - [PostgreSQL](https://www.postgresql.org/)
 
 ## Installation
 
 ```shell
 git clone https://github.com/cfpb/elasticizer.git
-virtualenv .virtualenvs/elasticizer/bin/activate
-sudo chown -R vagrant .virtualenvs/
+```
 
-source .virtualenvs/elasticizer/bin/activate
+If you like to encapsulate all dependencies in a virtual environment, you can create a virtual environment.  Check out [virtualenvwrapper](http://virtualenvwrapper.readthedocs.io/en/latest/command_ref.html) on how to make a new virtual environment.
+
+Then run the following to install dependencies:
+```shell
 cd elasticizer
 pip install -r requirements.txt
 python setup.py develop
