@@ -61,6 +61,15 @@ def clear(last):
                         pass    
 
 
+capture_task_exceptions = None
+@luigi.Task.event_handler(luigi.Event.FAILURE)
+def mourn_failure(task, exception):
+    """Will be called directly after a failed execution
+    of `run` on any Task subclass
+    """
+    global capture_task_exceptions
+    capture_task_exceptions = exception
+
 def main():
     # get the arguments from the command line
     parser = buildArgParser()
@@ -80,6 +89,10 @@ def main():
         if cmdline_args.restart:
             clear(task)
         luigi.build([task], local_scheduler=True)
+    # luigi suppresses exceptions
+    if capture_task_exceptions:
+        raise Exception(
+            'A luigi.Task failed, see traceback in the Luigi Execution Summary')
 
 
 if __name__ == '__main__':
