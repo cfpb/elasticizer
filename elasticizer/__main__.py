@@ -17,7 +17,7 @@ def buildArgParser():
                          help='number of back up indices: creates cycling indices (*-v1 -v2... -vN), with current aliased by the index arg')
     parser.add_argument('--table', '-t',
                          required=True, dest='table',
-                         help='the Elasticsearch table name that Luigi reads from')
+                         help='the name of the SQL table from which Luigi reads')
     parser.add_argument('--mapping_file', '-m',  metavar='mapping file',
                          default='mappings.json', dest='mapping_file',
                          help='the mapping filename used to set up Elasticsearch mappings')
