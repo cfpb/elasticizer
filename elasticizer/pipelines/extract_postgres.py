@@ -47,6 +47,22 @@ class Format(luigi.Task):
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
 
+    remap = {
+        'mail_street_address': 'mailing_address1',
+        'mail_city': 'mailing_city',
+        'mail_country_id': 'mailing_country_id',
+        'mail_country_name': 'mailing_country_name',
+        'mail_postal_code': 'mailing_postal_code',
+        'mail_region_abbrev': 'mailing_region_abbrev',
+        'mail_region_id': 'mailing_region_id',
+        'mail_region_name': 'mailing_region_name',
+        'mail_state_province': 'mailing_state_province_cd',
+        'fax_number': 'phone_fax',
+        'phone_number': 'phone_main',
+        'physical_state_province': 'physical_state_province_cd',
+        'physical_street_address': 'physical_address1'
+    }
+
     def _fields_from_mapping(self):
         with open(self.mapping_file,'r') as fp:
             mapping_json = json.load(fp, object_pairs_hook=collections.OrderedDict)
@@ -76,11 +92,18 @@ class Format(luigi.Task):
         return luigi.LocalTarget(self.docs_file)
  
     def run(self):
-        fields = self._fields_from_mapping() 
+        fields = self._fields_from_mapping()
+
+        # Remap the fields
+        sql_columns = [
+            self.remap[f] if f in self.remap else f
+            for f in fields
+        ]
+
         # Build the SQL
         extractor = self.input()[0]
         template = "SELECT {0} FROM {1};"
-        sql = template.format(', '.join(fields), extractor.table)
+        sql = template.format(', '.join(sql_columns), extractor.table)
 
         with extractor.connect().cursor() as cur:
             cur.execute(sql)
