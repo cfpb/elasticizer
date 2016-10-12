@@ -52,7 +52,10 @@ class Format(luigi.Task):
             mapping_json = json.load(fp, object_pairs_hook=collections.OrderedDict)
             fields = mapping_json['properties'].keys()
             # Automatically remove copy_to fields because they aren't expected from the input
-            copy_targets = set([i.get('copy_to','') for i in mapping_json['properties'].values()])
+            #pull out all the values for the key "copy_to"
+            l = [i.get('copy_to','') for i in mapping_json['properties'].values()]
+            # if copy_to is a list, then flatten it out in the set, else just take individual value
+            copy_targets = set([item if isinstance(sublist, list) else sublist for sublist in l for item in sublist])
             for ct in copy_targets:
                 if ct:
                     fields.remove(ct)
