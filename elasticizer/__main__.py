@@ -82,7 +82,8 @@ def main():
                 mapping_file=cmdline_args.mapping_file,
                 settings_file=cmdline_args.settings_file,
                 docs_file=cmdline_args.docs_file,
-                table=cmdline_args.table)
+                table=cmdline_args.table,
+                sql_filter="WHERE id_docket is null or id_rssd is not null or id_nmls is not null")
     if cmdline_args.clear:
         clear(task)
     else:

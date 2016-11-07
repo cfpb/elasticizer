@@ -46,6 +46,7 @@ class Format(luigi.Task):
     mapping_file = luigi.Parameter()
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
+    sql_filter = luigi.Parameter()
 
     def _fields_from_mapping(self):
         with open(self.mapping_file,'r') as fp:
@@ -82,8 +83,8 @@ class Format(luigi.Task):
         fields = self._fields_from_mapping() 
         # Build the SQL
         extractor = self.input()[0]
-        template = "SELECT {0} FROM {1};"
-        sql = template.format(', '.join(fields), extractor.table)
+        template = "SELECT {0} FROM {1} {2};"
+        sql = template.format(', '.join(fields), self.table, self.sql_filter)
 
         with extractor.connect().cursor() as cur:
             cur.execute(sql)
@@ -130,6 +131,8 @@ class ElasticIndex(CopyToIndex):
     settings_file = luigi.Parameter()
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
+    sql_filter = luigi.Parameter()
+
     # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())    
 
@@ -149,7 +152,7 @@ class ElasticIndex(CopyToIndex):
         return [ValidSettings(settings_file=self.settings_file), 
                 ValidMapping(mapping_file=self.mapping_file), 
                 Format(mapping_file=self.mapping_file, docs_file=self.docs_file, 
-                       table=self.table)]
+                       table=self.table, sql_filter=self.sql_filter)]
 
     @property
     def settings(self):
@@ -230,9 +233,12 @@ class Load(luigi.WrapperTask):
     settings_file = luigi.Parameter()
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
+    sql_filter = luigi.Parameter()
 
     def requires(self):
-        return [ElasticIndex(indexes=self.indexes, mapping_file=self.mapping_file, settings_file=self.settings_file, docs_file=self.docs_file, table=self.table)]
+        return [ElasticIndex(indexes=self.indexes, mapping_file=self.mapping_file, 
+                settings_file=self.settings_file, docs_file=self.docs_file, 
+                table=self.table, sql_filter=self.sql_filter)]
 
     @staticmethod
     def label_indices(n_versions, index_name):
