@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import random
 import luigi
@@ -6,7 +7,6 @@ from datetime import datetime
 from luigi.postgres import PostgresQuery
 from luigi.contrib.esindex import ElasticsearchTarget, CopyToIndex
 import elasticizer
-import json
 import collections
 #import logging
 
@@ -47,6 +47,7 @@ class Format(luigi.Task):
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
     sql_filter = luigi.Parameter()
+    fn_es_to_sql_fields = 'psql_column_rename.json'
 
     def _fields_from_mapping(self):
         with open(self.mapping_file,'r') as fp:
@@ -78,16 +79,33 @@ class Format(luigi.Task):
  
     def output(self):
         return luigi.LocalTarget(self.docs_file)
+
+    def _build_sql_query(self, fields):
+        ''' Creates SQL to extract correct columns based on ES mapping fields. 
+            
+            To extract correct fields from the DB, but maintain the same ES destination 
+            use json file of format mapped-field : DB-field 
+        '''
+        # match SQL columns to mapped fields
+        with open(self.fn_es_to_sql_fields,"r") as fp:
+            es_to_sql = json.load(fp)
+        sql_columns = ', '.join([
+            es_to_sql[f] if f in es_to_sql 
+            else f 
+            for f in fields
+        ])
+        # Build a query to get sql fields from postgres
+        template = "SELECT {0} FROM {1} {2};"
+        sql = template.format(sql_columns, self.table, self.sql_filter)
+        return sql
  
     def run(self):
         fields = self._fields_from_mapping() 
-        # Build the SQL
+        sql = self._build_sql_query(fields)
         extractor = self.input()[0]
-        template = "SELECT {0} FROM {1} {2};"
-        sql = template.format(', '.join(fields), self.table, self.sql_filter)
-
         with extractor.connect().cursor() as cur:
             cur.execute(sql)
+            # Build the labeled ES records into a json dump
             data = [self._projection(row, fields) for row in cur]
             with self.output().open('w') as f:
                 json.dump(data, f)
