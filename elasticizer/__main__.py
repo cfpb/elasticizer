@@ -32,6 +32,9 @@ def buildArgParser():
     parser.add('--sql_filter', required=False,
                         default='', dest='sql_filter', 
                         help='Filter data from SQL query (e.g. WHERE id is not null)')
+    parser.add('--marker_table', action='store_true', 
+                        default=False, dest='marker_table', 
+                        help='write to a marker table in the SQL database')
     parser.add('--restart','-r', action='store_true', 
                         default=False, dest='restart', 
                         help='clear all targets before running')
@@ -89,7 +92,8 @@ def main():
                 settings_file=cmdline_args.settings_file,
                 docs_file=cmdline_args.docs_file,
                 table=cmdline_args.table,
-                sql_filter=cmdline_args.sql_filter)
+                sql_filter=cmdline_args.sql_filter, 
+                marker_table=cmdline_args.marker_table)
     if cmdline_args.clear:
         clear(task)
     else:

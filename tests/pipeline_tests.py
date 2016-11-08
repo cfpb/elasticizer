@@ -37,7 +37,7 @@ class TestExternalLocalTarget(unittest.TestCase):
 class TestExtract(unittest.TestCase):
     def query_test(self):
         extract = Extract("table")
-        assert_equal(extract.query, 'SELECT * FROM table')
+        assert_equal(extract.query, 'SELECT * FROM table LIMIT 10')
 
 class TestFormat(unittest.TestCase):
 
@@ -72,7 +72,7 @@ class TestFormat(unittest.TestCase):
         }
         '''
         with patch('__builtin__.open', mock_open(read_data=data), create=True) as m:            
-            format = Format("mapping_file", "docs_file", "table", sql_filter="WHERE X")
+            format = Format("mapping_file", "docs_file", "table", sql_filter="WHERE X", marker_table=True)
             result = format._fields_from_mapping()
         m.assert_called_once_with('mapping_file', 'r')
         assert_equal([u'id_cfpb', u'name'], result)
@@ -107,7 +107,7 @@ class TestFormat(unittest.TestCase):
     def requires_test(self, mock_extract, mock_valid_mapping):
         mock_extract.__class__ = Extract
         mock_valid_mapping.__class__ = ValidMapping
-        format = Format("mapping_file", "docs_file", "table", sql_filter="WHERE X")
+        format = Format("mapping_file", "docs_file", "table", sql_filter="WHERE X", marker_table=True)
         result = format.requires()
         assert mock_extract.called
         assert mock_valid_mapping.called
@@ -119,16 +119,18 @@ class TestFormat(unittest.TestCase):
         # @TODO: Check the result[1] is valid mapping instance
 
     def output_test(self):
-        format = Format("mapping_file", "docs_file", "table", sql_filter="WHERE X")
+        format = Format("mapping_file", "docs_file", "table", sql_filter="WHERE X", marker_table=True)
         result = format.output()
         self.assertIsInstance(result, LocalTarget)
         # @TODO: Check mapping file is passed into LocalTarget
 
     @patch.object(Format, '_projection')
-    @patch.object(Format, 'input')
+    @patch.object(Extract, 'output')
+    @patch.object(Format, '_build_sql_query')
     @patch.object(Format, '_fields_from_mapping')
-    def run_test(self, mock_field_map, mock_input, mock_projection):
+    def run_test(self, mock_field_map, mock_build_sql_query, mock_ext_output, mock_projection):
         mock_field_map.return_value = [u'id_cfpb', u'name']
+        mock_build_sql_query.return_value = 'SELECT blah blah'
 
         mock_cursor_attrs = {'execute.return_value': True}
         mock_cursor = MagicMock(**mock_cursor_attrs)
@@ -139,10 +141,10 @@ class TestFormat(unittest.TestCase):
         mock_connect = Mock(**mock_connect_attrs)
         mock_extractor_attrs = {'connect.return_value': mock_connect}
         mock_extractor = Mock(table="table", **mock_extractor_attrs)
-        mock_input.return_value = [mock_extractor]
+        mock_ext_output.return_value = mock_extractor
 
         mock_projection.return_value = "1"
-        format = Format("mapping_file", "docs_file", "table", sql_filter="WHERE X")
+        format = Format("mapping_file", "docs_file", "table", sql_filter="WHERE id_cfpb is not NULL", marker_table=True)
         format.run()
 
         mock_field_map.assert_called_once()

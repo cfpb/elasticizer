@@ -8,6 +8,13 @@ from luigi.contrib.esindex import ElasticsearchTarget, CopyToIndex
 import elasticizer
 import collections
 #import logging
+import decimal
+
+#http://stackoverflow.com/questions/1960516/python-json-serialize-a-decimal-object
+def decimal_default(obj):
+    if isinstance(obj, decimal.Decimal):
+        return str(obj)
+    raise TypeError
 
 # -----------------------------------------------------------------------------
 # Targets
@@ -27,9 +34,11 @@ class ExternalLocalTarget(luigi.LocalTarget):
 # Tasks
 # -----------------------------------------------------------------------------
 class Extract(PostgresQuery):
+    # Don't use this as a Luigi input if 
+    # you don't have permission to write to a marker DB table 
     table = luigi.Parameter()
     # this is a hack to force action by Luigi through changing parameters
-    date = luigi.DateMinuteParameter(default=datetime.today())    
+    date = luigi.DateSecondParameter(default=datetime.now())    
 
     host = os.getenv('DB_HOST', '127.0.0.1')
     database = os.getenv('DB_NAME', 'mydb')
@@ -38,7 +47,9 @@ class Extract(PostgresQuery):
     
     @property
     def query(self):
-        return 'SELECT * FROM {0}'.format(self.table)
+        # Note that this query is executed but not used! 
+        # Data is extracted from the connection in Format 
+        return 'SELECT * FROM {0} LIMIT 10'.format(self.table)
 
 
 class Format(luigi.Task):
@@ -47,6 +58,7 @@ class Format(luigi.Task):
     table = luigi.Parameter()
     sql_filter = luigi.Parameter()
     fn_es_to_sql_fields = 'psql_column_rename.json'
+    marker_table = luigi.BooleanParameter()
 
     def _fields_from_mapping(self):
         with open(self.mapping_file,'r') as fp:
@@ -78,10 +90,12 @@ class Format(luigi.Task):
         return results
 
     def requires(self):
-        return [Extract(table=self.table),
-                ValidMapping(mapping_file=self.mapping_file)
-                ]
- 
+        if self.marker_table: 
+            return [Extract(table=self.table), ValidMapping(mapping_file=self.mapping_file)]
+        else:
+            return [ValidMapping(mapping_file=self.mapping_file)]
+
+
     def output(self):
         return luigi.LocalTarget(self.docs_file)
 
@@ -107,13 +121,13 @@ class Format(luigi.Task):
     def run(self):
         fields = self._fields_from_mapping() 
         sql = self._build_sql_query(fields)
-        extractor = self.input()[0]
+        extractor = Extract(table=self.table).output()
         with extractor.connect().cursor() as cur:
             cur.execute(sql)
             # Build the labeled ES records into a json dump
             data = [self._projection(fields, row) for row in cur]
             with self.output().open('w') as f:
-                json.dump(data, f)
+                json.dump(data, f, default=decimal_default)
 
 
 class ValidMapping(luigi.ExternalTask):
@@ -155,6 +169,7 @@ class ElasticIndex(CopyToIndex):
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
     sql_filter = luigi.Parameter()
+    marker_table = luigi.BooleanParameter()
 
     # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())    
@@ -175,7 +190,7 @@ class ElasticIndex(CopyToIndex):
         return [ValidSettings(settings_file=self.settings_file), 
                 ValidMapping(mapping_file=self.mapping_file), 
                 Format(mapping_file=self.mapping_file, docs_file=self.docs_file, 
-                       table=self.table, sql_filter=self.sql_filter)]
+                       table=self.table, sql_filter=self.sql_filter, marker_table=self.marker_table)]
 
     @property
     def settings(self):
@@ -257,11 +272,12 @@ class Load(luigi.WrapperTask):
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
     sql_filter = luigi.Parameter()
+    marker_table = luigi.BooleanParameter()
 
     def requires(self):
         return [ElasticIndex(indexes=self.indexes, mapping_file=self.mapping_file, 
                 settings_file=self.settings_file, docs_file=self.docs_file, 
-                table=self.table, sql_filter=self.sql_filter)]
+                table=self.table, sql_filter=self.sql_filter, marker_table=self.marker_table)]
 
     @staticmethod
     def label_indices(n_versions, index_name):
