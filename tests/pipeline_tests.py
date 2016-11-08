@@ -8,6 +8,7 @@ from luigi import LocalTarget
 # from luigi.test.postgre_test import MockPostgresCursor
 from mock import mock_open, patch, Mock, MagicMock, mock#, mock_calls
 from collections import namedtuple
+import datetime
 
 class TestIndexNamer(unittest.TestCase):
 
@@ -76,8 +77,30 @@ class TestFormat(unittest.TestCase):
         m.assert_called_once_with('mapping_file', 'r')
         assert_equal([u'id_cfpb', u'name'], result)
 
-    def projection_test(self):
-        pass
+    @parameterized.expand([
+        ( (['dinosaurs', 'bugs'], ['Stegasaurus','Cricket']),
+            {'dinosaurs':'Stegasaurus', 'bugs':'Cricket'} ),
+        ( (['dinosaurs', 'bugs', 'cats'], [101,222,333]),
+            {'dinosaurs':101, 'bugs':222, 'cats':333 } ),
+        ( (['dinosaurs_date', 'bugs'], [datetime.date(2002, 12, 4),222]), 
+            {'dinosaurs_date':'2002-12-04', 'bugs':222} ),
+        ])
+    def projection_test(self, input, expected):
+        row = input[0]
+        fields = input[1]
+        results = Format._projection(row, fields)
+        assert_equal(results, expected)
+
+    @parameterized.expand([
+        ( ('etad',111), 111),
+        ( ('1date1',datetime.date(2002, 12, 4)), '2002-12-04')
+        ])
+    def format_values_test(self, input, expected):
+        field = input[0]
+        value = input[1]
+        fvalue = Format._format_values(field, value)
+        assert_equal(fvalue, expected)
+
 
     @patch('elasticizer.pipelines.extract_postgres.ValidMapping')
     @patch('elasticizer.pipelines.extract_postgres.Extract')
@@ -124,9 +147,9 @@ class TestFormat(unittest.TestCase):
 
         mock_field_map.assert_called_once()
         assert_equal(mock_projection.call_count, 3)
-        mock_projection.assert_has_calls([mock.call("row1", mock_field_map.return_value), 
-                                            mock.call("row2", mock_field_map.return_value),
-                                            mock.call("row3", mock_field_map.return_value)])
+        mock_projection.assert_has_calls([mock.call(mock_field_map.return_value, "row1"), 
+                                            mock.call(mock_field_map.return_value, "row2"),
+                                            mock.call(mock_field_map.return_value, "row3")])
 
         # @TODO: mock open and json dump
 
@@ -139,7 +162,3 @@ class TestValidSettings(unittest.TestCase):
     def output_test(self):
         v_settings = ValidSettings("mapping_file")
         self.assertIsInstance(v_settings.output(), ExternalLocalTarget)
-
-
-
-

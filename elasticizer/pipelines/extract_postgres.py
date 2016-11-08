@@ -62,13 +62,19 @@ class Format(luigi.Task):
                     fields.remove(ct)
         return fields
 
-    def _projection(self, row, fields):
+    @staticmethod
+    def _format_values(field, value):
+        # force formats -- just dates so far
+        if 'date' in field and value:
+            return value.isoformat()
+        else: 
+            return value
+
+    @staticmethod
+    def _projection(fields, row):
         results = {}
         for field, value in zip(fields, row):
-            if 'date' in field and value:
-                results[field] =value.isoformat()
-            else:
-                results[field] = value
+            results[field] = Format._format_values(field, value)
         return results
 
     def requires(self):
@@ -105,7 +111,7 @@ class Format(luigi.Task):
         with extractor.connect().cursor() as cur:
             cur.execute(sql)
             # Build the labeled ES records into a json dump
-            data = [self._projection(row, fields) for row in cur]
+            data = [self._projection(fields, row) for row in cur]
             with self.output().open('w') as f:
                 json.dump(data, f)
 
