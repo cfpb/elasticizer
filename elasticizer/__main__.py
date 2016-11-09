@@ -34,6 +34,9 @@ def build_arg_parser():
     parser.add('--sql_filter', required=False,
                default='', dest='sql_filter',
                help='Filter data from SQL query (e.g. WHERE id is not null)')
+    parser.add('--es_timeout', required=False,
+               default=10, dest='es_timeout',
+               help='timeout when waiting for ES response during indexing')
     parser.add('--marker_table', action='store_true',
                default=False, dest='marker_table',
                help='write to a marker table in the SQL database')
@@ -100,7 +103,8 @@ def main():
                 docs_file=cmdline_args.docs_file,
                 table=cmdline_args.table,
                 sql_filter=cmdline_args.sql_filter,
-                marker_table=cmdline_args.marker_table)
+                marker_table=cmdline_args.marker_table, 
+                es_timeout=cmdline_args.es_timeout)
     if cmdline_args.clear:
         clear(task)
     else:

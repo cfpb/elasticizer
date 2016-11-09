@@ -179,6 +179,7 @@ class ElasticIndex(CopyToIndex):
     table = luigi.Parameter()
     sql_filter = luigi.Parameter()
     marker_table = luigi.BooleanParameter()
+    es_timeout = luigi.IntParameter()
 
     # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())
@@ -278,7 +279,7 @@ class ElasticIndex(CopyToIndex):
             es.indices.create(index=self.index, body=self.settings)
             if self.indexes.alias:
                 self._redirect_alias(
-                    es, old_index=self._old_index, new_index=self._new_index, 
+                    es, old_index=self._old_index, new_index=self._new_index,
                     alias=self.indexes.alias)
 
 
@@ -290,6 +291,7 @@ class Load(luigi.WrapperTask):
     table = luigi.Parameter()
     sql_filter = luigi.Parameter()
     marker_table = luigi.BooleanParameter()
+    es_timeout = luigi.IntParameter()
 
     def requires(self):
         return [ElasticIndex(
@@ -298,7 +300,8 @@ class Load(luigi.WrapperTask):
                     settings_file=self.settings_file,
                     docs_file=self.docs_file,
                     table=self.table, sql_filter=self.sql_filter,
-                    marker_table=self.marker_table)]
+                    marker_table=self.marker_table,
+                    es_timeout=self.es_timeout)]
 
     @staticmethod
     def label_indices(n_versions, index_name):
