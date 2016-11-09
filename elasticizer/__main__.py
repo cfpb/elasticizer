@@ -7,47 +7,50 @@ import collections
 import configargparse
 
 
-def buildArgParser():
+def build_arg_parser():
     parser = configargparse.ArgParser(prog='elasticizer',
-                                     description='from DB to Elasticsearch')
-    parser.add('-c', '--my-config', required=True, is_config_file=True, help='config file path')
+                                      description='from DB to Elasticsearch')
+    parser.add('-c', '--my-config', required=True,
+               is_config_file=True, help='config file path')
     parser.add('--index', '-i',
-                         required=True, dest='index',
-                         help='the Elasticsearch index name that Luigi updates')
-    parser.add('--backup_count', '-b', 
-                         default=0, type=backup_type, dest='backup_count',
-                         help='number of back up indices: creates cycling indices (*-v1 -v2... -vN), with current aliased by the index arg')
+               required=True, dest='index',
+               help='the Elasticsearch index name that Luigi updates')
+    parser.add('--backup_count', '-b',
+               default=0, type=backup_type, dest='backup_count',
+               help=('number of back up indices: creates cycling indices '
+                     '(*-v1 -v2... -vN), with current aliased by the index arg'))
     parser.add('--table', '-t',
-                         required=True, dest='table',
-                         help='the name of the SQL table from which Luigi reads')
+               required=True, dest='table',
+               help='the name of the SQL table from which Luigi reads')
     parser.add('--mapping_file', '-m',  metavar='mapping file',
-                         default='mappings.json', dest='mapping_file',
-                         help='the mapping filename used to set up Elasticsearch mappings')
+               default='mappings.json', dest='mapping_file',
+               help='the mapping filename used to set up Elasticsearch mappings')
     parser.add('--settings_file', '-s', metavar='settings file',
-                         default='settings.json', dest='settings_file',
-                         help='the settings filename used to set up Elasticsearch settings')
-    parser.add('--docs_file', '-o', 
-                         default='tmp.json', dest='docs_file',
-                         help='an output file that stores data being loaded into Elasticsearch.')
+               default='settings.json', dest='settings_file',
+               help='the settings filename used to set up Elasticsearch settings')
+    parser.add('--docs_file', '-o',
+               default='tmp.json', dest='docs_file',
+               help='an output file that stores data being loaded into Elasticsearch.')
     parser.add('--sql_filter', required=False,
-                        default='', dest='sql_filter', 
-                        help='Filter data from SQL query (e.g. WHERE id is not null)')
-    parser.add('--marker_table', action='store_true', 
-                        default=False, dest='marker_table', 
-                        help='write to a marker table in the SQL database')
-    parser.add('--restart','-r', action='store_true', 
-                        default=False, dest='restart', 
-                        help='clear all targets before running')
-    parser.add('--clear', action='store_true', 
-                        default=False, dest='clear', 
-                        help='clear all targets')
+               default='', dest='sql_filter',
+               help='Filter data from SQL query (e.g. WHERE id is not null)')
+    parser.add('--marker_table', action='store_true',
+               default=False, dest='marker_table',
+               help='write to a marker table in the SQL database')
+    parser.add('--restart', '-r', action='store_true',
+               default=False, dest='restart',
+               help='clear all targets before running')
+    parser.add('--clear', action='store_true',
+               default=False, dest='clear',
+               help='clear all targets')
     return parser
 
 
 def backup_type(x):
     x = int(x)
     if x < 1:
-        raise argparse.ArgumentTypeError("Minimum backup count is 0 for no backups")
+        raise argparse.ArgumentTypeError(
+            "Minimum backup count is 0 for no backups")
     return x
 
 
@@ -63,13 +66,15 @@ def clear(last):
                 pass
             else:
                 if task.output().exists():
-                    try :
+                    try:
                         task.output().remove()
                     except:
-                        pass    
+                        pass
 
 
 capture_task_exceptions = None
+
+
 @luigi.Task.event_handler(luigi.Event.FAILURE)
 def mourn_failure(task, exception):
     """Will be called directly after a failed execution
@@ -78,21 +83,23 @@ def mourn_failure(task, exception):
     global capture_task_exceptions
     capture_task_exceptions = exception
 
+
 def main():
     # get the arguments from the command line
-    parser = buildArgParser()
+    parser = build_arg_parser()
     cmdline_args = parser.parse_args()
 
-    #get a named tuple of indexes v1...vN
-    indexes = Load.label_indices(cmdline_args.backup_count+1, cmdline_args.index)
+    # get a named tuple of indexes v1...vN
+    indexes = Load.label_indices(
+        cmdline_args.backup_count + 1, cmdline_args.index)
 
     # get the end class
-    task = Load(indexes=indexes, 
+    task = Load(indexes=indexes,
                 mapping_file=cmdline_args.mapping_file,
                 settings_file=cmdline_args.settings_file,
                 docs_file=cmdline_args.docs_file,
                 table=cmdline_args.table,
-                sql_filter=cmdline_args.sql_filter, 
+                sql_filter=cmdline_args.sql_filter,
                 marker_table=cmdline_args.marker_table)
     if cmdline_args.clear:
         clear(task)

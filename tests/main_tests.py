@@ -19,7 +19,4 @@ class TestBackupType(unittest.TestCase):
     ])
     def test_backup_with_exception(self, _, bu_type):
         with self.assertRaises(Exception):
-            __main__.backup_type(bu_type) 
-
-
-        
+            __main__.backup_type(bu_type)
