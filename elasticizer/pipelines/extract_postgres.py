@@ -6,9 +6,15 @@ from datetime import datetime
 from luigi.postgres import PostgresQuery
 from luigi.contrib.esindex import ElasticsearchTarget, CopyToIndex
 import elasticizer
-import json
 import collections
 #import logging
+import decimal
+
+#http://stackoverflow.com/questions/1960516/python-json-serialize-a-decimal-object
+def decimal_default(obj):
+    if isinstance(obj, decimal.Decimal):
+        return str(obj)
+    raise TypeError
 
 # -----------------------------------------------------------------------------
 # Targets
@@ -28,9 +34,11 @@ class ExternalLocalTarget(luigi.LocalTarget):
 # Tasks
 # -----------------------------------------------------------------------------
 class Extract(PostgresQuery):
+    # Don't use this as a Luigi input if 
+    # you don't have permission to write to a marker DB table 
     table = luigi.Parameter()
     # this is a hack to force action by Luigi through changing parameters
-    date = luigi.DateMinuteParameter(default=datetime.today())    
+    date = luigi.DateSecondParameter(default=datetime.now())    
 
     host = os.getenv('DB_HOST', '127.0.0.1')
     database = os.getenv('DB_NAME', 'mydb')
@@ -39,13 +47,18 @@ class Extract(PostgresQuery):
     
     @property
     def query(self):
-        return 'SELECT * FROM {0}'.format(self.table)
+        # Note that this query is executed but not used! 
+        # Data is extracted from the connection in Format 
+        return 'SELECT * FROM {0} LIMIT 10'.format(self.table)
 
 
 class Format(luigi.Task):
     mapping_file = luigi.Parameter()
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
+    sql_filter = luigi.Parameter()
+    fn_es_to_sql_fields = 'psql_column_rename.json'
+    marker_table = luigi.BooleanParameter()
 
     def _fields_from_mapping(self):
         with open(self.mapping_file,'r') as fp:
@@ -61,35 +74,60 @@ class Format(luigi.Task):
                     fields.remove(ct)
         return fields
 
-    def _projection(self, row, fields):
+    @staticmethod
+    def _format_values(field, value):
+        # force formats -- just dates so far
+        if 'date' in field and value:
+            return value.isoformat()
+        else: 
+            return value
+
+    @staticmethod
+    def _projection(fields, row):
         results = {}
         for field, value in zip(fields, row):
-            if 'date' in field and value:
-                results[field] =value.isoformat()
-            else:
-                results[field] = value
+            results[field] = Format._format_values(field, value)
         return results
 
     def requires(self):
-        return [Extract(table=self.table),
-                ValidMapping(mapping_file=self.mapping_file)
-                ]
- 
+        if self.marker_table: 
+            return [Extract(table=self.table), ValidMapping(mapping_file=self.mapping_file)]
+        else:
+            return [ValidMapping(mapping_file=self.mapping_file)]
+
+
     def output(self):
         return luigi.LocalTarget(self.docs_file)
+
+    def _build_sql_query(self, fields):
+        ''' Creates SQL to extract correct columns based on ES mapping fields. 
+            
+            To extract correct fields from the DB, but maintain the same ES destination 
+            use json file of format mapped-field : DB-field 
+        '''
+        # match SQL columns to mapped fields
+        with open(self.fn_es_to_sql_fields,"r") as fp:
+            es_to_sql = json.load(fp)
+        sql_columns = ', '.join([
+            es_to_sql[f] if f in es_to_sql 
+            else f 
+            for f in fields
+        ])
+        # Build a query to get sql fields from postgres
+        template = "SELECT {0} FROM {1} {2};"
+        sql = template.format(sql_columns, self.table, self.sql_filter)
+        return sql
  
     def run(self):
         fields = self._fields_from_mapping() 
-        # Build the SQL
-        extractor = self.input()[0]
-        template = "SELECT {0} FROM {1};"
-        sql = template.format(', '.join(fields), extractor.table)
-
+        sql = self._build_sql_query(fields)
+        extractor = Extract(table=self.table).output()
         with extractor.connect().cursor() as cur:
             cur.execute(sql)
-            data = [self._projection(row, fields) for row in cur]
+            # Build the labeled ES records into a json dump
+            data = [self._projection(fields, row) for row in cur]
             with self.output().open('w') as f:
-                json.dump(data, f)
+                json.dump(data, f, default=decimal_default)
 
 
 class ValidMapping(luigi.ExternalTask):
@@ -130,6 +168,9 @@ class ElasticIndex(CopyToIndex):
     settings_file = luigi.Parameter()
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
+    sql_filter = luigi.Parameter()
+    marker_table = luigi.BooleanParameter()
+
     # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())    
 
@@ -149,7 +190,7 @@ class ElasticIndex(CopyToIndex):
         return [ValidSettings(settings_file=self.settings_file), 
                 ValidMapping(mapping_file=self.mapping_file), 
                 Format(mapping_file=self.mapping_file, docs_file=self.docs_file, 
-                       table=self.table)]
+                       table=self.table, sql_filter=self.sql_filter, marker_table=self.marker_table)]
 
     @property
     def settings(self):
@@ -230,9 +271,13 @@ class Load(luigi.WrapperTask):
     settings_file = luigi.Parameter()
     docs_file = luigi.Parameter()
     table = luigi.Parameter()
+    sql_filter = luigi.Parameter()
+    marker_table = luigi.BooleanParameter()
 
     def requires(self):
-        return [ElasticIndex(indexes=self.indexes, mapping_file=self.mapping_file, settings_file=self.settings_file, docs_file=self.docs_file, table=self.table)]
+        return [ElasticIndex(indexes=self.indexes, mapping_file=self.mapping_file, 
+                settings_file=self.settings_file, docs_file=self.docs_file, 
+                table=self.table, sql_filter=self.sql_filter, marker_table=self.marker_table)]
 
     @staticmethod
     def label_indices(n_versions, index_name):
