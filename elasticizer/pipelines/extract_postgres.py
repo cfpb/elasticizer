@@ -179,8 +179,7 @@ class ElasticIndex(CopyToIndex):
     table = luigi.Parameter()
     sql_filter = luigi.Parameter()
     marker_table = luigi.BooleanParameter()
-    # timeout overwrites properties of the CopytoIndex class
-    timeout = luigi.IntParameter()
+    es_timeout = luigi.IntParameter()
 
     # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())
@@ -190,6 +189,7 @@ class ElasticIndex(CopyToIndex):
     user = os.getenv('ES_USER', '')
     password = os.getenv('ES_PASSWORD', '')
     http_auth = (user, password)
+    timeout = es_timeout
     # ssl for es isn't part of the luigi api so provide as an extra arg
     use_ssl = (os.getenv('ES_USE_SSL', 'False')).lower() in ('true',)
     verify_certs = False
