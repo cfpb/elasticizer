@@ -179,7 +179,7 @@ class ElasticIndex(CopyToIndex):
     table = luigi.Parameter()
     sql_filter = luigi.Parameter()
     marker_table = luigi.BooleanParameter()
-    es_timeout = luigi.IntParameter()
+    timeout = luigi.IntParameter()
 
     # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())
