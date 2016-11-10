@@ -179,11 +179,12 @@ class ElasticIndex(CopyToIndex):
     table = luigi.Parameter()
     sql_filter = luigi.Parameter()
     marker_table = luigi.BooleanParameter()
+    # timeout overwrites properties of the CopytoIndex class
     timeout = luigi.IntParameter()
 
     # this is a hack to force action by Luigi through changing parameters
     date = luigi.DateMinuteParameter(default=datetime.today())
-
+    # these overwrite properties of the CopytoIndex class
     host = os.getenv('ES_HOST', 'localhost')
     port = os.getenv('ES_PORT', '9200')
     user = os.getenv('ES_USER', '')
