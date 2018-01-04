@@ -88,6 +88,8 @@ class Format(luigi.Task):
         # force formats -- just dates so far
         if 'date' in field and value:
             return value.isoformat()
+        elif 'array' in field and value:
+            return list(value)
         else:
             return value
 
@@ -136,7 +138,7 @@ class Format(luigi.Task):
             # Build the labeled ES records into a json dump
             data = [self._projection(fields, row) for row in cur]
             with self.output().open('w') as f:
-                json.dump(data, f, default=decimal_default)
+                json.dump(data, f, encoding='utf8', default=decimal_default)
 
 
 class ValidMapping(luigi.ExternalTask):
