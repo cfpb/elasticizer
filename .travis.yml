@@ -4,7 +4,7 @@ python:
 # command to install dependencies
 install: pip install -r requirements.txt
 addons:
-  postgresql: 10.1
+  postgresql: "10.1"
   # apt:
   #   packages:
   #   - postgresql-10.1
