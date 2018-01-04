@@ -4,10 +4,10 @@ python:
 # command to install dependencies
 install: pip install -r requirements.txt
 addons:
-  postgresql: 9.3
-  apt:
-    packages:
-    - postgresql-9.3-postgis-2.3
+  postgresql: 10.1
+  # apt:
+  #   packages:
+  #   - postgresql-9.3-postgis-2.3
 # command to run tests
 script: 
   - nosetests
