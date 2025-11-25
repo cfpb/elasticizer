@@ -1,5 +1,7 @@
 # Elasticizer
 
+This project is archived and no longer maintained.
+
 **Description**: A tool that pulls data from an arbitrary source and indexes that data in Elasticsearch. Data that is indexed in Elasticsearch is able to be efficiently and flexiblly searched.
 
   - **Status**:  Pre-Alpha. Just gettting started. [CHANGELOG](CHANGELOG.md).
